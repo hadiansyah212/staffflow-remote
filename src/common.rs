@@ -2357,7 +2357,76 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+/// StaffFlow Remote: fitur yang tidak dipakai dimatikan dan tidak bisa diubah pengguna.
+/// Tanda "sedang dikendalikan" (jendela koneksi) sengaja tidak bisa disembunyikan.
+fn load_staffflow_policy() {
+    let mut overwrite = config::OVERWRITE_SETTINGS.write().unwrap();
+    for key in [
+        "enable-file-transfer",
+        "enable-tunnel",
+        "enable-terminal",
+        "enable-audio",
+        "enable-camera",
+        "enable-remote-printer",
+        "enable-record-session",
+        "enable-block-input",
+        "enable-remote-restart",
+        "enable-lan-discovery",
+        "direct-server",
+        "allow-remote-config-modification",
+        "allow-remote-cm-modification",
+        "allow-hide-cm",
+        "hide-cm",
+        "enable-check-update",
+        "allow-auto-update",
+    ] {
+        overwrite.insert(key.to_owned(), "N".to_owned());
+    }
+    overwrite.insert("enable-keyboard".to_owned(), "Y".to_owned());
+    overwrite.insert("enable-clipboard".to_owned(), "Y".to_owned());
+    drop(overwrite);
+    // Bawaan aman: tiap koneksi harus diterima di PC karyawan.
+    config::DEFAULT_SETTINGS
+        .write()
+        .unwrap()
+        .insert("approve-mode".to_owned(), "click".to_owned());
+    config::HARD_SETTINGS
+        .write()
+        .unwrap()
+        .insert("disable-settings".to_owned(), "Y".to_owned());
+    let mut builtin = config::BUILTIN_SETTINGS.write().unwrap();
+    builtin.insert(keys::OPTION_REGISTER_DEVICE.to_owned(), "N".to_owned());
+    builtin.insert(keys::OPTION_DISABLE_CHANGE_ID.to_owned(), "Y".to_owned());
+}
+
+/// Dipanggil app StaffFlow: `--staffflow-session ask`, atau `--staffflow-session direct` dengan
+/// sandi sesi lewat stdin (bukan argumen, supaya tidak terlihat di daftar proses).
+pub fn staffflow_session(mode: &str) -> ResultType<()> {
+    match mode {
+        "direct" => {
+            let mut password = String::new();
+            std::io::stdin().read_line(&mut password)?;
+            let password = password.trim();
+            if password.len() < 16 {
+                bail!("session password too short");
+            }
+            crate::ipc::set_permanent_password(password.to_owned())?;
+            crate::ipc::set_option("verification-method", "use-permanent-password");
+            crate::ipc::set_option("approve-mode", "password");
+        }
+        "ask" => {
+            // Sandi sesi sebelumnya dibuang, bukan sekadar tidak dipakai.
+            crate::ipc::set_permanent_password(Config::get_auto_password(32))?;
+            crate::ipc::set_option("verification-method", "");
+            crate::ipc::set_option("approve-mode", "click");
+        }
+        _ => bail!("unknown session mode"),
+    }
+    Ok(())
+}
+
 pub fn load_custom_client() {
+    load_staffflow_policy();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());

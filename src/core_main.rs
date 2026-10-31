@@ -434,6 +434,16 @@ pub fn core_main() -> Option<Vec<String>> {
                 import_config(&filepath);
             }
             return None;
+        } else if args[0] == "--staffflow-session" {
+            if !crate::platform::is_installed() {
+                println!("Installation required!");
+                return None;
+            }
+            match crate::common::staffflow_session(args.get(1).map_or("", |x| x.as_str())) {
+                Ok(_) => println!("Done!"),
+                Err(err) => println!("{err}"),
+            }
+            return None;
         } else if args[0] == "--password" {
             if is_cli_setting_change_disabled() {
                 println!("Settings are disabled!");

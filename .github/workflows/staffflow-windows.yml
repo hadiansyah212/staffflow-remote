@@ -120,6 +120,8 @@ jobs:
         run: |
           python3 .\build.py --portable --flutter --skip-portable-pack --hwcodec --vram
           mv ./flutter/build/windows/x64/runner/Release ./rustdesk
+          # Pemasang hanya memakai nama exe apa adanya; layanan Windows mencari <APP_NAME>.exe.
+          mv ./rustdesk/rustdesk.exe ./rustdesk/StaffFlowRemote.exe
 
       - name: Find Runner.res
         continue-on-error: true
@@ -134,7 +136,7 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
+          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/StaffFlowRemote.exe
           popd
           mkdir -p ./out
           mv ./target/release/rustdesk-portable-packer.exe ./out/StaffFlowRemote-${{ env.VERSION }}-x86_64.exe

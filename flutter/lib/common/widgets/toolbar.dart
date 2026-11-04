@@ -971,39 +971,8 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
         child: Text(translate('Lock after session end'))));
   }
 
-  final privacyModeState = PrivacyModeState.find(id);
-  if (pi.isSupportMultiDisplay &&
-      (privacyModeState.isEmpty ||
-          allowDisplaySwitchInPrivacyMode(pi, privacyModeState.value)) &&
-      pi.displaysCount.value > 1 &&
-      bind.mainGetUserDefaultOption(key: kKeyShowMonitorsToolbar) == 'Y') {
-    final value =
-        bind.sessionGetDisplaysAsIndividualWindows(sessionId: ffi.sessionId) ==
-            'Y';
-    v.add(TToggleMenu(
-        value: value,
-        onChanged: (value) {
-          if (value == null) return;
-          bind.sessionSetDisplaysAsIndividualWindows(
-              sessionId: sessionId, value: value ? 'Y' : 'N');
-        },
-        child: Text(translate('Show displays as individual windows'))));
-  }
-
-  final isMultiScreens = !isWeb && (await getScreenRectList()).length > 1;
-  if (pi.isSupportMultiDisplay && isMultiScreens) {
-    final value = bind.sessionGetUseAllMyDisplaysForTheRemoteSession(
-            sessionId: ffi.sessionId) ==
-        'Y';
-    v.add(TToggleMenu(
-        value: value,
-        onChanged: (value) {
-          if (value == null) return;
-          bind.sessionSetUseAllMyDisplaysForTheRemoteSession(
-              sessionId: sessionId, value: value ? 'Y' : 'N');
-        },
-        child: Text(translate('Use all my displays for the remote session'))));
-  }
+  // StaffFlow: monitor selalu berganti di jendela yang sama, jadi pilihan
+  // "jendela terpisah" dan "pakai semua monitor saya" sengaja tidak ditampilkan.
 
   // 444
   final codec_format = ffi.qualityMonitorModel.data.codecFormat;

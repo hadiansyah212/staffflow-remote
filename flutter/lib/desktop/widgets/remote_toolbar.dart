@@ -803,35 +803,21 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       BuildContext context, _ToolbarEdge edge, bool isHorizontal) {
     final List<Widget> toolbarItems = [];
     toolbarItems.add(_PinMenu(state: widget.state));
-    toolbarItems.add(Obx(() {
-      final privacyModeState = PrivacyModeState.find(widget.id);
-      if ((privacyModeState.isEmpty ||
-              allowDisplaySwitchInPrivacyMode(pi, privacyModeState.value)) &&
-          pi.displaysCount.value > 1 &&
-          mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)) {
-        return _MainMonitorSwitchButton(id: widget.id, ffi: widget.ffi);
-      } else {
-        return const Offstage();
-      }
-    }));
-    if (!isWebDesktop) {
-      toolbarItems.add(_MobileActionMenu(ffi: widget.ffi));
-    }
-
+    // StaffFlow: satu tombol monitor saja, berganti monitor di jendela yang sama.
     toolbarItems.add(Obx(() {
       final privacyModeState = PrivacyModeState.find(widget.id);
       if ((privacyModeState.isEmpty ||
               allowDisplaySwitchInPrivacyMode(pi, privacyModeState.value)) &&
           pi.displaysCount.value > 1) {
-        return _MonitorMenu(
-            id: widget.id,
-            ffi: widget.ffi,
-            edge: edge,
-            setRemoteState: widget.setRemoteState);
+        return _MainMonitorSwitchButton(id: widget.id, ffi: widget.ffi);
       } else {
-        return Offstage();
+        return const Offstage();
       }
     }));
+    toolbarItems.add(_ViewFitButton(ffi: widget.ffi));
+    if (!isWebDesktop) {
+      toolbarItems.add(_MobileActionMenu(ffi: widget.ffi));
+    }
 
     toolbarItems
         .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));
@@ -992,14 +978,40 @@ class _MonitorCycle {
     if (t < 2) return;
     final from = _inRange ? _current : -1;
     final target = (from + 1) % t;
-    final isChooseDisplayToOpenInNewWindow = _pi.isSupportMultiDisplay &&
-        bind.sessionGetDisplaysAsIndividualWindows(sessionId: ffi.sessionId) ==
-            'Y';
-    if (isChooseDisplayToOpenInNewWindow) {
-      openMonitorInNewTabOrWindow(target, ffi.id, _pi);
-    } else {
-      openMonitorInTheSameTab(target, ffi, _pi, updateCursorPos: false);
-    }
+    openMonitorInTheSameTab(target, ffi, _pi, updateCursorPos: false);
+  }
+}
+
+/// StaffFlow: tombol cepat tampilan Responsif (pas jendela) <-> Asli (1:1).
+class _ViewFitButton extends StatelessWidget {
+  final FFI ffi;
+  const _ViewFitButton({Key? key, required this.ffi}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: ffi.canvasModel,
+      builder: (context, _) {
+        final fit = ffi.canvasModel.viewStyle.style == kRemoteViewStyleAdaptive;
+        return _IconMenuButton(
+          tooltip: fit
+              ? 'Tampilan: Responsif (klik untuk ukuran asli)'
+              : 'Tampilan: Ukuran asli (klik untuk responsif)',
+          icon: Icon(fit ? Icons.fit_screen : Icons.crop_free,
+              color: Colors.white, size: 20),
+          color: fit ? _ToolbarTheme.blueColor : _ToolbarTheme.inactiveColor,
+          hoverColor: fit
+              ? _ToolbarTheme.hoverBlueColor
+              : _ToolbarTheme.hoverInactiveColor,
+          onPressed: () => bind
+              .sessionSetViewStyle(
+                  sessionId: ffi.sessionId,
+                  value:
+                      fit ? kRemoteViewStyleOriginal : kRemoteViewStyleAdaptive)
+              .then((_) => ffi.canvasModel.updateViewStyle()),
+        );
+      },
+    );
   }
 }
 

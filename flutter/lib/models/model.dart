@@ -1434,8 +1434,7 @@ class FfiModel with ChangeNotifier {
               bind.sessionGetUseAllMyDisplaysForTheRemoteSession(
                       sessionId: sessionId) !=
                   'Y' &&
-              ((last == kAllDisplayValue && _pi.displays.isNotEmpty) ||
-                  (last >= 0 && last < _pi.displays.length)))
+              (last >= 0 && last < _pi.displays.length))
           ? last
           : null;
       // Fallback if the first image event never reaches this tab (multi-UI).
@@ -1527,6 +1526,9 @@ class FfiModel with ChangeNotifier {
   }
 
   tryUseAllMyDisplaysForTheRemoteSession(String peerId) async {
+    // StaffFlow: jangan pernah membuka monitor lain di jendela baru.
+    return;
+    // ignore: dead_code
     if (bind.sessionGetUseAllMyDisplaysForTheRemoteSession(
             sessionId: sessionId) !=
         'Y') {

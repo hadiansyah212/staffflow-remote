@@ -267,6 +267,7 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
             .unwrap()
             .retain(|_, c| !(c.disconnected && c.peer_id == client.peer_id));
         CLIENTS.write().unwrap().insert(id, client.clone());
+        catat_masuk(if authorized { "diterima" } else { "minta" }, id, &peer_id, &name);
         self.ui_handler.add_connection(&client);
     }
 
@@ -282,6 +283,15 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
     }
 
     fn remove_connection(&self, id: i32, close: bool) {
+        let putus = CLIENTS
+            .read()
+            .unwrap()
+            .get(&id)
+            .filter(|c| !c.disconnected)
+            .map(|c| (c.peer_id.clone(), c.name.clone()));
+        if let Some((peer_id, name)) = putus {
+            catat_masuk("putus", id, &peer_id, &name);
+        }
         if close {
             CLIENTS.write().unwrap().remove(&id);
         } else {
@@ -362,10 +372,45 @@ pub fn get_click_time() -> i64 {
     CLICK_TIME.load(Ordering::SeqCst)
 }
 
+// StaffFlow: catatan sambungan masuk untuk menu Remote di app FlowOne. Satu baris JSON per kejadian
+// (minta / diterima / putus) di folder config milik pengguna Windows yang menjalankan CM.
+// Gagal menulis hanya dicatat di log, sambungan tetap jalan.
+const CATATAN_MASUK: &str = "sambungan-masuk.jsonl";
+const CATATAN_MASUK_MAKS: u64 = 256 * 1024;
+
+fn catat_masuk(aksi: &str, conn: i32, peer_id: &str, name: &str) {
+    use std::io::Write;
+    let path = Config::path(CATATAN_MASUK);
+    if let Some(folder) = path.parent() {
+        let _ = std::fs::create_dir_all(folder);
+    }
+    if std::fs::metadata(&path).map(|m| m.len() > CATATAN_MASUK_MAKS).unwrap_or(false) {
+        let _ = std::fs::rename(&path, path.with_extension("jsonl.1"));
+    }
+    let baris = serde_json::json!({
+        "t": hbb_common::get_time(),
+        "aksi": aksi,
+        "conn": conn,
+        "id": peer_id,
+        "nama": name,
+    });
+    let hasil = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .and_then(|mut berkas| writeln!(berkas, "{}", baris));
+    if let Err(e) = hasil {
+        log::warn!("catat sambungan masuk: {}", e);
+    }
+}
+
 #[inline]
 #[cfg(not(any(target_os = "ios")))]
 pub fn authorize(id: i32) {
     if let Some(client) = CLIENTS.write().unwrap().get_mut(&id) {
+        if !client.authorized {
+            catat_masuk("diterima", id, &client.peer_id, &client.name);
+        }
         client.authorized = true;
         allow_err!(client.tx.send(Data::Authorize));
     };
